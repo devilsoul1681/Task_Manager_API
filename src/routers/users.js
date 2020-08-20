@@ -57,6 +57,10 @@ router.post("/logoutall",auth,async(rq,rs)=>{
 
 })
 
+router.get('/',(rq,rs)=>{
+    rs.status(200).send('aman')
+})
+
 
 // router.get('/user/:id', async (rq,rs)=>{
 //   const _id=rq.params.id;
@@ -127,6 +131,29 @@ const upload=multer({
 
 })
 
+const upload2=multer({
+    limits:{
+        fileSize:2000000
+    },
+    fileFilter(rq,file,cb){
+        if(!file.originalname.match(/\.(pdf|doc|docx)$/)){
+            return cb(new Error("Please upload valid file"))
+        }
+
+        cb(undefined,true);
+    }
+})
+
+
+router.post("/user/me/file",auth,upload2.single('file'),async (rq,rs)=>{
+     const buffer=rq.file.buffer;
+     rq.user.file=buffer;
+     await rq.user.save();
+     return rs.status(200).send("file has been uploaded")
+},(error,rq,rs,next)=>{
+    rs.send(400).send({error:error.message})
+})
+
 
 router.post("/user/me/avatar",auth,upload.single('avatar'),async (rq,rs)=>{
     const buffer=await sharp(rq.file.buffer).resize({width:250,height:250}).png().toBuffer()
@@ -144,7 +171,7 @@ router.post("/user/me/avatar",auth,upload.single('avatar'),async (rq,rs)=>{
 
 router.delete("/user/me/avatar",auth,async (rq,rs)=>{
     if(rq.user.image===undefined){
-        return rs.status(400).send("No image of you in the server");
+        return rs.status(400).send("No image of you on the server");
     }
   rq.user.image=undefined;
   await rq.user.save();
@@ -167,6 +194,24 @@ router.get("/user/:id/avatar",async (rq,rs)=>{
         rs.status(404).send()   
     }
 })
+
+
+router.get("/user/:id/file",async (rq,rs)=>{
+    try {
+        const user=await User.findById({_id:rq.params.id})
+
+        if(!user || !user.file){
+            throw new Error()
+        }
+
+        rs.set('Content-Type', 'application/pdf');
+        rs.send(user.file)
+        
+    } catch (e) {
+        rs.status(404).send()   
+    }
+})
+
 
 
 module.exports=router;
